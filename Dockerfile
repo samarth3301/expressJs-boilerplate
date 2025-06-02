@@ -1,38 +1,34 @@
-# syntax=docker/dockerfile:1
+ARG NODE_VERSION=20.14.0
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
+FROM node:${NODE_VERSION}-alpine AS builder
 
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
+WORKDIR /usr/src/template
 
-ARG NODE_VERSION=22.14.0
+COPY package*.json ./
+RUN npm install
 
-FROM node:${NODE_VERSION}-alpine
-
-# Use production node environment by default.
-ENV NODE_ENV production
-
-
-WORKDIR /usr/src/app
-
-# Download dependencies as a separate step to take advantage of Docker's caching.
-# Leverage a cache mount to /root/.npm to speed up subsequent builds.
-# Leverage a bind mounts to package.json and package-lock.json to avoid having to copy them into
-# into this layer.
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=package-lock.json,target=package-lock.json \
-    --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
-
-# Run the application as a non-root user.
-USER node
-
-# Copy the rest of the source files into the image.
 COPY . .
 
-# Expose the port that the application listens on.
+RUN npx prisma generate
+RUN npm run build
+
+
+FROM node:${NODE_VERSION}-alpine AS production
+
+WORKDIR /usr/src/template
+
+COPY --from=builder /usr/src/template/node_modules ./node_modules
+COPY --from=builder /usr/src/template/dist ./dist
+COPY --from=builder /usr/src/template/generated ./generated
+COPY --from=builder /usr/src/template/package*.json ./
+COPY --from=builder /usr/src/template/prisma ./prisma
+COPY --from=builder /usr/src/template/.env ./
+
+# Using the correct port from your application
 EXPOSE 3000
 
-# Run the application.
-CMD node index.js
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Run with module-alias for path aliases
+CMD ["node", "-r", "module-alias/register", "dist/index.js"]
