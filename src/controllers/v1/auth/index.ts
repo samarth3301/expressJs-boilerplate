@@ -1,1 +1,1 @@
-export { default as admin } from "./admin.controller";
+export { default } from "./admin.controller";
