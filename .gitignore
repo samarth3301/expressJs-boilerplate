@@ -6,3 +6,7 @@ generated
 /src/generated/prisma
 
 dist
+
+
+bun.lock
+package-lock.json
