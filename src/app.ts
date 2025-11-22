@@ -3,6 +3,7 @@ import cors from 'cors'
 import router from './routes'
 import morgan from 'morgan'
 import helmet from 'helmet'
+import { errorConverter, errorHandler } from './handlers/error.handler'
 
 const app = express()
 
@@ -13,5 +14,8 @@ app.use(morgan("dev"))
 app.use(helmet())
 
 app.use(router)
+
+app.use(errorConverter)
+app.use(errorHandler)
 
 export default app
